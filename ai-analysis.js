@@ -1,131 +1,103 @@
-// BookTunes - Sophisticated AI Book Analysis
-// Multi-dimensional analysis system for deeply personalized music curation
+// BookTunes - Sophisticated AI Book Analysis (DEBUGGED)
+// Multi-dimensional analysis for deeply personalized music curation
 
 async function analyzeBook(bookTitle) {
     try {
-        const prompt = `You are a literary and music expert tasked with creating the perfect soundtrack for reading "${bookTitle}".
+        const prompt = `You are a literary and music expert creating the perfect soundtrack for reading "${bookTitle}".
 
-Think deeply about:
+Analyze deeply:
 1. What emotional EXPERIENCE did the author create?
 2. What ATMOSPHERE pervades the book?
-3. What was the author's INTENT - what should readers feel?
-4. What music would the AUTHOR have listened to while writing?
-5. What would a film composer choose for this story's score?
+3. What music would fit this book's essence?
+4. What should readers FEEL while reading?
 
-Provide a detailed analysis as JSON:
+Return ONLY a JSON object with this structure:
 
 {
-    "emotional_core": {
-        "primary_emotions": ["2-3 specific emotions"],
-        "emotional_weight": "light/medium/heavy/devastating",
-        "emotional_temperature": "cold/neutral/warm/hot",
-        "emotional_movement": "static/gradual/building/turbulent"
-    },
-    
-    "atmospheric_qualities": {
-        "sonic_texture": "sparse/minimal/balanced/lush/dense",
-        "spatial_quality": "intimate/enclosed/expansive/vast",
-        "temporal_feel": "timeless/nostalgic/contemporary/futuristic",
-        "mood_descriptors": ["3-5 SPECIFIC atmospheric words"]
-    },
-    
-    "thematic_context": {
-        "subject_gravity": "lighthearted/contemplative/serious/tragic/traumatic",
-        "core_themes": ["2-4 major themes"],
-        "cultural_elements": "Description of cultural/ethnic context",
-        "sensitive_topics": ["war", "genocide", "trauma", "violence"] or []
-    },
-    
-    "geographic_cultural": {
-        "primary_setting": "Specific country/region",
-        "cultural_traditions": "Relevant musical traditions",
-        "time_period": "When story takes place",
-        "language_region": "Language/dialect region"
-    },
-    
-    "musical_direction": {
-        "instrument_palette": ["3-5 instruments that fit"],
-        "genre_suggestions": ["3-5 specific genres"],
-        "explicit_exclusions": ["genres/styles to AVOID"],
-        "suggested_artists": ["3-6 specific artists with reasoning"],
-        "reference_composers": ["composers/musicians whose work fits"]
-    },
-    
-    "pacing_rhythm": {
-        "reading_pace": "slow/measured/moderate/quick/intense",
-        "narrative_rhythm": "meditative/flowing/dynamic/urgent",
-        "sonic_density": "spacious/balanced/layered"
-    }
+  "emotional_weight": "light/medium/heavy/devastating",
+  "subject_gravity": "lighthearted/contemplative/serious/tragic/traumatic",
+  "primary_emotions": ["2-4 specific emotions"],
+  "atmospheric_descriptors": ["3-5 specific atmospheric words"],
+  "sensitive_topics": [],
+  "geographic_setting": "Country or region where book takes place",
+  "time_period": "When story takes place",
+  "cultural_context": "Brief cultural description",
+  "suggested_artists": ["3-6 specific artist names"],
+  "instrument_palette": ["3-5 instruments"],
+  "genre_suggestions": ["3-5 genres"],
+  "explicit_exclusions": ["genres to AVOID"],
+  "themes": ["2-4 major themes"]
 }
 
 CRITICAL GUIDELINES:
 
-**EMOTIONAL_CORE:**
-- primary_emotions: Be SPECIFIC. Not "sad" but "grief-stricken", "mournful", "elegiac"
-  Choose from: mournful, elegiac, grief-stricken, somber, haunting, devastating, wistful, yearning, bittersweet, melancholic, contemplative, meditative, introspective, philosophical, serene, tranquil, gentle, tense, anxious, suspenseful, foreboding, ominous, eerie, unsettling, mysterious, enigmatic, ethereal, dreamlike, nostalgic, wistful, hopeful, uplifting, tender, intimate, passionate, longing, desolate, barren, stark
+1. PRIMARY_EMOTIONS: Be SPECIFIC. Choose from:
+   mournful, elegiac, grief-stricken, somber, haunting, devastating, wistful, yearning, 
+   bittersweet, melancholic, contemplative, meditative, introspective, philosophical, 
+   serene, tranquil, gentle, tense, anxious, suspenseful, foreboding, ominous, eerie, 
+   unsettling, mysterious, enigmatic, ethereal, dreamlike, nostalgic, hopeful, uplifting, 
+   tender, intimate, passionate, longing, desolate, barren, stark
 
-**ATMOSPHERIC_QUALITIES:**
-- mood_descriptors: VERY SPECIFIC. Not "dark" but "oppressively dark", "twilit", "shadow-laden"
-  Examples: twilit, shadow-laden, luminous, crystalline, murky, fog-drenched, sun-bleached, nocturnal, dawn-like, dust-laden, rain-soaked, snow-muffled, wind-swept, intimate whispers, vast silences, echoing voids, warm amber, cold steel, earthy, ethereal, grounded, floating, claustrophobic, agoraphobic
+2. ATMOSPHERIC_DESCRIPTORS: Very specific. Examples:
+   twilit, shadow-laden, luminous, crystalline, murky, fog-drenched, sun-bleached, 
+   nocturnal, dawn-like, dust-laden, rain-soaked, snow-muffled, wind-swept, 
+   intimate whispers, vast silences, echoing voids, warm amber, cold steel, 
+   earthy, floating, claustrophobic, expansive
 
-**THEMATIC_CONTEXT:**
-- subject_gravity: BE HONEST. Genocide = "traumatic". Coming-of-age comedy = "lighthearted"
-- sensitive_topics: If book deals with war, genocide, violence, trauma, death → LIST THEM
-  This triggers STRICT music filtering (no party, dance, upbeat, cheerful music)
+3. SUBJECT_GRAVITY: Be honest.
+   - Genocide/war/trauma = "traumatic"
+   - Death/loss/serious themes = "serious" or "tragic"
+   - Light fiction = "lighthearted"
 
-**MUSICAL_DIRECTION:**
-- explicit_exclusions: For serious books, MUST exclude: "Latin pop", "reggaeton", "dance pop", "party music", "EDM", "upbeat pop", "cheerful", "festive"
-- For tragic books: "happy", "optimistic", "energetic", "celebratory"
-- For intimate books: "bombastic", "epic", "grandiose"
-- suggested_artists: THINK CAREFULLY:
-  * For Palestinian themes → Use Arabic classical musicians, oud players, Middle Eastern composers
-  * For Turkish books → Tanburi Cemil Bey, Münir Nurettin Selçuk, Ottoman classical
-  * For Romanian books → Maria Tănase, Dan Spătaru, Romanian folk
-  * For war/genocide → Arvo Pärt, Henryk Górecki, somber classical
-  * For melancholy → Nick Cave, Low, Grouper, Sufjan Stevens
-  * For contemplative → Max Richter, Ólafur Arnalds, Nils Frahm
-  * PRIORITIZE: Traditional/folk artists from the book's region, classical composers, ambient/modern classical
+4. SENSITIVE_TOPICS: If book deals with war, genocide, violence, trauma, abuse, death - LIST THEM
+   This triggers strict music filtering to prevent inappropriate matches.
 
-**EXAMPLES:**
+5. EXPLICIT_EXCLUSIONS: For serious/tragic books, MUST exclude:
+   "Latin pop", "reggaeton", "dance pop", "party music", "EDM", "upbeat pop", 
+   "cheerful", "festive", "celebratory", "club", "dance"
 
-For "Night" by Elie Wiesel:
-- emotional_weight: "devastating"
-- subject_gravity: "traumatic"
-- sensitive_topics: ["genocide", "war", "trauma", "death"]
-- explicit_exclusions: ["Latin pop", "reggaeton", "dance", "party", "upbeat", "cheerful", "optimistic"]
-- suggested_artists: ["Arvo Pärt", "Henryk Górecki", "Kol Nidre traditional", "Jewish liturgical music"]
+6. SUGGESTED_ARTISTS: Think carefully:
+   - For geographic regions: Include traditional/folk artists from that region
+   - For Turkish books: Tanburi Cemil Bey, Munir Nurettin Selcuk
+   - For Romanian books: Maria Tanase, Dan Spataru
+   - For Palestinian/Arabic themes: Marcel Khalife, Simon Shaheen, oud players
+   - For tragic books: Arvo Part, Henryk Gorecki, Max Richter
+   - For melancholic: Nick Cave, Low, Grouper, Sufjan Stevens
+   - For contemplative: Nils Frahm, Olafur Arnalds, Johann Johannsson
 
-For "Snow" by Orhan Pamuk:
-- emotional_weight: "heavy"
-- primary_emotions: ["contemplative", "melancholic", "politically tense"]
-- cultural_elements: "Turkish, Ottoman influences, Islamic culture"
-- suggested_artists: ["Tanburi Cemil Bey", "Münir Nurettin Selçuk", "Jordi Savall", "Turkish classical ensembles"]
+EXAMPLES:
 
-For "A Little Life" by Hanya Yanagihara:
-- emotional_weight: "devastating"
-- subject_gravity: "traumatic"
-- sensitive_topics: ["trauma", "abuse", "grief"]
-- explicit_exclusions: ["upbeat", "cheerful", "party", "energetic"]
-- suggested_artists: ["Arvo Pärt", "Max Richter", "Jóhann Jóhannsson", "Low", "Grouper"]
+Book: "Night" by Elie Wiesel
+{
+  "emotional_weight": "devastating",
+  "subject_gravity": "traumatic",
+  "primary_emotions": ["grief-stricken", "mournful", "haunting"],
+  "sensitive_topics": ["genocide", "war", "trauma", "death"],
+  "explicit_exclusions": ["Latin pop", "reggaeton", "dance", "party", "upbeat", "cheerful"],
+  "suggested_artists": ["Arvo Part", "Henryk Gorecki", "Jewish liturgical music"]
+}
 
-Return ONLY the JSON object, no other text.`;
+Book: "Snow" by Orhan Pamuk
+{
+  "emotional_weight": "heavy",
+  "subject_gravity": "serious",
+  "primary_emotions": ["contemplative", "melancholic", "tense"],
+  "geographic_setting": "Turkey",
+  "suggested_artists": ["Tanburi Cemil Bey", "Munir Nurettin Selcuk", "Turkish classical"]
+}
+
+Return ONLY the JSON object, no markdown, no explanation.`;
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${CONFIG.GEMINI_API_KEY}`,
             {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: prompt
-                        }]
-                    }],
+                    contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: {
                         temperature: 0.8,
-                        maxOutputTokens: 2048,
+                        maxOutputTokens: 2048
                     }
                 })
             }
@@ -138,33 +110,81 @@ Return ONLY the JSON object, no other text.`;
         const data = await response.json();
         const text = data.candidates[0].content.parts[0].text;
         
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        // Extract JSON from response (remove markdown if present)
+        let jsonText = text.trim();
+        jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            throw new Error('Failed to extract JSON from AI response');
+            console.error('AI response:', text);
+            throw new Error('Could not extract JSON from AI response');
         }
 
         const analysis = JSON.parse(jsonMatch[0]);
 
-        // Transform into format expected by music search
-        const transformedAnalysis = transformAnalysis(analysis);
+        // Transform to expected format
+        const transformed = {
+            // Core fields
+            mood: [
+                ...(analysis.primary_emotions || []),
+                ...(analysis.atmospheric_descriptors || [])
+            ].slice(0, 6),
+            
+            setting_place: 'unknown',
+            geographic_setting: analysis.geographic_setting || null,
+            time_period: analysis.time_period || null,
+            cultural_context: analysis.cultural_context || '',
+            
+            // Critical fields
+            suggested_artists: analysis.suggested_artists || [],
+            explicit_exclusions: analysis.explicit_exclusions || [],
+            emotional_weight: analysis.emotional_weight || 'medium',
+            subject_gravity: analysis.subject_gravity || 'contemplative',
+            sensitive_topics: analysis.sensitive_topics || [],
+            
+            // Atmospheric
+            atmospheric_descriptors: analysis.atmospheric_descriptors || [],
+            
+            // Musical
+            instrument_palette: analysis.instrument_palette || ['piano', 'strings'],
+            genre_suggestions: analysis.genre_suggestions || [],
+            
+            // Themes
+            themes: analysis.themes || []
+        };
 
-        console.log('🎭 DEEP ANALYSIS:');
-        console.log('  Emotional weight:', analysis.emotional_core?.emotional_weight);
-        console.log('  Subject gravity:', analysis.thematic_context?.subject_gravity);
-        console.log('  Sensitive topics:', analysis.thematic_context?.sensitive_topics);
-        console.log('  Primary emotions:', analysis.emotional_core?.primary_emotions);
-        console.log('  Atmosphere:', analysis.atmospheric_qualities?.mood_descriptors);
-        console.log('  Geographic setting:', analysis.geographic_cultural?.primary_setting);
-        console.log('  Suggested artists:', analysis.musical_direction?.suggested_artists?.slice(0, 3));
-        console.log('  EXPLICIT EXCLUSIONS:', analysis.musical_direction?.explicit_exclusions);
+        // Auto-add exclusions for sensitive topics
+        if (transformed.sensitive_topics && transformed.sensitive_topics.length > 0) {
+            const autoExclusions = [
+                'Latin pop', 'reggaeton', 'dance pop', 'party', 'EDM',
+                'upbeat', 'cheerful', 'festive', 'club', 'dance', 'happy'
+            ];
+            
+            transformed.explicit_exclusions = [
+                ...new Set([
+                    ...(transformed.explicit_exclusions || []),
+                    ...autoExclusions
+                ])
+            ];
+            
+            console.log('⚠️ SENSITIVE TOPICS DETECTED:', transformed.sensitive_topics);
+            console.log('🚫 Auto-applied exclusions:', transformed.explicit_exclusions);
+        }
 
-        return transformedAnalysis;
+        console.log('🎭 ANALYSIS COMPLETE:');
+        console.log('   Weight:', transformed.emotional_weight);
+        console.log('   Gravity:', transformed.subject_gravity);
+        console.log('   Emotions:', transformed.mood.slice(0, 3));
+        console.log('   Setting:', transformed.geographic_setting);
+        console.log('   Artists:', transformed.suggested_artists.slice(0, 3));
+        console.log('   Exclusions:', transformed.explicit_exclusions.slice(0, 5));
+
+        return transformed;
 
     } catch (error) {
-        console.error('Error analyzing book:', error);
+        console.error('❌ Analysis error:', error);
         
-        // Return safe, minimal defaults
+        // Safe fallback
         return {
             mood: ['contemplative', 'atmospheric'],
             setting_place: 'unknown',
@@ -175,82 +195,10 @@ Return ONLY the JSON object, no other text.`;
             emotional_weight: 'medium',
             subject_gravity: 'contemplative',
             sensitive_topics: [],
-            atmospheric_descriptors: ['meditative', 'spacious'],
+            atmospheric_descriptors: ['meditative'],
             instrument_palette: ['piano', 'strings'],
-            sonic_texture: 'minimal'
+            genre_suggestions: [],
+            themes: []
         };
     }
-}
-
-// Transform complex analysis into format used by music search
-function transformAnalysis(analysis) {
-    const transformed = {
-        // Legacy fields (for backward compatibility)
-        mood: [
-            ...(analysis.emotional_core?.primary_emotions || []),
-            ...(analysis.atmospheric_qualities?.mood_descriptors || [])
-        ].slice(0, 5),
-        
-        setting_place: mapSpatialQuality(analysis.atmospheric_qualities?.spatial_quality),
-        
-        // New detailed fields
-        geographic_setting: analysis.geographic_cultural?.primary_setting || null,
-        time_period: analysis.geographic_cultural?.time_period || null,
-        cultural_context: analysis.geographic_cultural?.cultural_traditions || '',
-        
-        suggested_artists: analysis.musical_direction?.suggested_artists || [],
-        reference_composers: analysis.musical_direction?.reference_composers || [],
-        
-        // Critical filtering fields
-        explicit_exclusions: analysis.musical_direction?.explicit_exclusions || [],
-        emotional_weight: analysis.emotional_core?.emotional_weight || 'medium',
-        subject_gravity: analysis.thematic_context?.subject_gravity || 'contemplative',
-        sensitive_topics: analysis.thematic_context?.sensitive_topics || [],
-        
-        // Atmospheric guidance
-        atmospheric_descriptors: analysis.atmospheric_qualities?.mood_descriptors || [],
-        sonic_texture: analysis.atmospheric_qualities?.sonic_texture || 'balanced',
-        spatial_quality: analysis.atmospheric_qualities?.spatial_quality || 'balanced',
-        
-        // Musical direction
-        instrument_palette: analysis.musical_direction?.instrument_palette || [],
-        genre_suggestions: analysis.musical_direction?.genre_suggestions || [],
-        
-        // Pacing
-        reading_pace: analysis.pacing_rhythm?.reading_pace || 'moderate',
-        narrative_rhythm: analysis.pacing_rhythm?.narrative_rhythm || 'flowing',
-        
-        // Themes
-        themes: analysis.thematic_context?.core_themes || []
-    };
-
-    // If book has sensitive topics, add aggressive exclusions
-    if (transformed.sensitive_topics.length > 0) {
-        const sensitiveExclusions = [
-            'Latin pop', 'reggaeton', 'dance pop', 'party', 'EDM', 
-            'upbeat', 'cheerful', 'festive', 'celebratory', 'energetic',
-            'club', 'dance', 'happy', 'optimistic', 'fun'
-        ];
-        
-        transformed.explicit_exclusions = [
-            ...new Set([
-                ...transformed.explicit_exclusions,
-                ...sensitiveExclusions
-            ])
-        ];
-        
-        console.log('⚠️ SENSITIVE TOPICS DETECTED - Applying strict exclusions:', transformed.explicit_exclusions);
-    }
-
-    return transformed;
-}
-
-function mapSpatialQuality(quality) {
-    const mapping = {
-        'intimate': 'indoor',
-        'enclosed': 'indoor',
-        'expansive': 'nature',
-        'vast': 'nature'
-    };
-    return mapping[quality] || 'unknown';
 }
