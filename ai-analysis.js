@@ -1,66 +1,117 @@
-// AI Book Analysis using Gemini API
+// BookTunes - Sophisticated AI Book Analysis
+// Multi-dimensional analysis system for deeply personalized music curation
 
-async function analyzeBookWithAI(bookTitle, bookAuthor, bookDescription) {
-    const apiKey = CONFIG.GEMINI_API_KEY;
-    
-    // Create a smart prompt for Gemini
-    const prompt = `Analyze this book and extract SPECIFIC musical characteristics for the perfect reading soundtrack.
+async function analyzeBook(bookTitle) {
+    try {
+        const prompt = `You are a literary and music expert tasked with creating the perfect soundtrack for reading "${bookTitle}".
 
-Book Title: ${bookTitle}
-Author: ${bookAuthor}
-Full Description: ${bookDescription || 'No description available'}
+Think deeply about:
+1. What emotional EXPERIENCE did the author create?
+2. What ATMOSPHERE pervades the book?
+3. What was the author's INTENT - what should readers feel?
+4. What music would the AUTHOR have listened to while writing?
+5. What would a film composer choose for this story's score?
 
-CRITICAL: Be SPECIFIC, not generic. Extract actual artists, instruments, and cultural music styles.
+Provide a detailed analysis as JSON:
 
-Please respond with ONLY a valid JSON object (no markdown, no extra text) in this exact format:
 {
-  "mood": ["adjective1", "adjective2", "adjective3"],
-  "setting_place": "SPECIFIC location (e.g., 'Konya, Turkey' not just 'Turkey')",
-  "setting_era": "specific time period",
-  "pace": "slow/medium/fast",
-  "vibes": ["vibe1", "vibe2", "vibe3", "vibe4", "vibe5"],
-  "music_genres": ["SPECIFIC genre1", "SPECIFIC genre2", "SPECIFIC genre3"],
-  "cultural_sound": "SPECIFIC cultural/regional music style (e.g., 'turkish sufi music', 'fado', 'bossa nova')",
-  "instruments": ["instrument1", "instrument2", "instrument3"],
-  "artists": ["artist1", "artist2", "artist3"],
-  "search_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
+    "emotional_core": {
+        "primary_emotions": ["2-3 specific emotions"],
+        "emotional_weight": "light/medium/heavy/devastating",
+        "emotional_temperature": "cold/neutral/warm/hot",
+        "emotional_movement": "static/gradual/building/turbulent"
+    },
+    
+    "atmospheric_qualities": {
+        "sonic_texture": "sparse/minimal/balanced/lush/dense",
+        "spatial_quality": "intimate/enclosed/expansive/vast",
+        "temporal_feel": "timeless/nostalgic/contemporary/futuristic",
+        "mood_descriptors": ["3-5 SPECIFIC atmospheric words"]
+    },
+    
+    "thematic_context": {
+        "subject_gravity": "lighthearted/contemplative/serious/tragic/traumatic",
+        "core_themes": ["2-4 major themes"],
+        "cultural_elements": "Description of cultural/ethnic context",
+        "sensitive_topics": ["war", "genocide", "trauma", "violence"] or []
+    },
+    
+    "geographic_cultural": {
+        "primary_setting": "Specific country/region",
+        "cultural_traditions": "Relevant musical traditions",
+        "time_period": "When story takes place",
+        "language_region": "Language/dialect region"
+    },
+    
+    "musical_direction": {
+        "instrument_palette": ["3-5 instruments that fit"],
+        "genre_suggestions": ["3-5 specific genres"],
+        "explicit_exclusions": ["genres/styles to AVOID"],
+        "suggested_artists": ["3-6 specific artists with reasoning"],
+        "reference_composers": ["composers/musicians whose work fits"]
+    },
+    
+    "pacing_rhythm": {
+        "reading_pace": "slow/measured/moderate/quick/intense",
+        "narrative_rhythm": "meditative/flowing/dynamic/urgent",
+        "sonic_density": "spacious/balanced/layered"
+    }
 }
 
-Examples of SPECIFIC (good) vs GENERIC (bad) responses:
+CRITICAL GUIDELINES:
 
-BAD: 
-- music_genres: ["ambient", "instrumental", "world music"]
-- artists: []
-- instruments: []
+**EMOTIONAL_CORE:**
+- primary_emotions: Be SPECIFIC. Not "sad" but "grief-stricken", "mournful", "elegiac"
+  Choose from: mournful, elegiac, grief-stricken, somber, haunting, devastating, wistful, yearning, bittersweet, melancholic, contemplative, meditative, introspective, philosophical, serene, tranquil, gentle, tense, anxious, suspenseful, foreboding, ominous, eerie, unsettling, mysterious, enigmatic, ethereal, dreamlike, nostalgic, wistful, hopeful, uplifting, tender, intimate, passionate, longing, desolate, barren, stark
 
-GOOD for "The Forty Rules of Love" (Rumi, Sufism, 13th century Turkey):
-- music_genres: ["sufi qawwali", "turkish classical", "sema music"]
-- cultural_sound: "turkish sufi devotional music"
-- instruments: ["ney flute", "oud", "bendir drum"]
-- artists: ["Mercan Dede", "Kudsi Erguner", "Nusrat Fateh Ali Khan"]
-- vibes: ["whirling dervishes", "mystical", "rumi poetry", "konya", "devotional"]
+**ATMOSPHERIC_QUALITIES:**
+- mood_descriptors: VERY SPECIFIC. Not "dark" but "oppressively dark", "twilit", "shadow-laden"
+  Examples: twilit, shadow-laden, luminous, crystalline, murky, fog-drenched, sun-bleached, nocturnal, dawn-like, dust-laden, rain-soaked, snow-muffled, wind-swept, intimate whispers, vast silences, echoing voids, warm amber, cold steel, earthy, ethereal, grounded, floating, claustrophobic, agoraphobic
 
-GOOD for "The Island of Missing Trees" (Cyprus, family, figs, love):
-- music_genres: ["cypriot folk", "greek bouzouki", "mediterranean"]
-- cultural_sound: "cypriot traditional music"
-- instruments: ["bouzouki", "lyra", "violin"]
-- artists: ["Michalis Terzis", "Alkinoos Ioannidis"]
-- vibes: ["cyprus", "family", "figs", "tender love", "mediterranean nature"]
+**THEMATIC_CONTEXT:**
+- subject_gravity: BE HONEST. Genocide = "traumatic". Coming-of-age comedy = "lighthearted"
+- sensitive_topics: If book deals with war, genocide, violence, trauma, death → LIST THEM
+  This triggers STRICT music filtering (no party, dance, upbeat, cheerful music)
 
-GOOD for "Giovanni's Room" (1950s Paris, jazz, love):
-- music_genres: ["1950s jazz", "french cafe jazz", "cool jazz"]
-- cultural_sound: "parisian jazz club"
-- instruments: ["piano", "double bass", "trumpet"]
-- artists: ["Miles Davis", "Chet Baker", "Bill Evans"]
-- vibes: ["paris 1950s", "intimate jazz", "cigarettes", "existential", "love"]
+**MUSICAL_DIRECTION:**
+- explicit_exclusions: For serious books, MUST exclude: "Latin pop", "reggaeton", "dance pop", "party music", "EDM", "upbeat pop", "cheerful", "festive"
+- For tragic books: "happy", "optimistic", "energetic", "celebratory"
+- For intimate books: "bombastic", "epic", "grandiose"
+- suggested_artists: THINK CAREFULLY:
+  * For Palestinian themes → Use Arabic classical musicians, oud players, Middle Eastern composers
+  * For Turkish books → Tanburi Cemil Bey, Münir Nurettin Selçuk, Ottoman classical
+  * For Romanian books → Maria Tănase, Dan Spătaru, Romanian folk
+  * For war/genocide → Arvo Pärt, Henryk Górecki, somber classical
+  * For melancholy → Nick Cave, Low, Grouper, Sufjan Stevens
+  * For contemplative → Max Richter, Ólafur Arnalds, Nils Frahm
+  * PRIORITIZE: Traditional/folk artists from the book's region, classical composers, ambient/modern classical
 
-BE SPECIFIC. Name actual artists, instruments, and cultural music traditions that match the book's setting and themes.`;
+**EXAMPLES:**
 
-    console.log('🤖 Asking Gemini to analyze the book...');
-    
-    try {
+For "Night" by Elie Wiesel:
+- emotional_weight: "devastating"
+- subject_gravity: "traumatic"
+- sensitive_topics: ["genocide", "war", "trauma", "death"]
+- explicit_exclusions: ["Latin pop", "reggaeton", "dance", "party", "upbeat", "cheerful", "optimistic"]
+- suggested_artists: ["Arvo Pärt", "Henryk Górecki", "Kol Nidre traditional", "Jewish liturgical music"]
+
+For "Snow" by Orhan Pamuk:
+- emotional_weight: "heavy"
+- primary_emotions: ["contemplative", "melancholic", "politically tense"]
+- cultural_elements: "Turkish, Ottoman influences, Islamic culture"
+- suggested_artists: ["Tanburi Cemil Bey", "Münir Nurettin Selçuk", "Jordi Savall", "Turkish classical ensembles"]
+
+For "A Little Life" by Hanya Yanagihara:
+- emotional_weight: "devastating"
+- subject_gravity: "traumatic"
+- sensitive_topics: ["trauma", "abuse", "grief"]
+- explicit_exclusions: ["upbeat", "cheerful", "party", "energetic"]
+- suggested_artists: ["Arvo Pärt", "Max Richter", "Jóhann Jóhannsson", "Low", "Grouper"]
+
+Return ONLY the JSON object, no other text.`;
+
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${CONFIG.GEMINI_API_KEY}`,
             {
                 method: 'POST',
                 headers: {
@@ -71,150 +122,135 @@ BE SPECIFIC. Name actual artists, instruments, and cultural music traditions tha
                         parts: [{
                             text: prompt
                         }]
-                    }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.8,
+                        maxOutputTokens: 2048,
+                    }
                 })
             }
         );
 
-        const data = await response.json();
-        
-        if (!data.candidates || !data.candidates[0]) {
-            throw new Error('No response from Gemini');
+        if (!response.ok) {
+            throw new Error(`Gemini API error: ${response.status}`);
         }
+
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text;
         
-        let responseText = data.candidates[0].content.parts[0].text;
-        
-        // Clean up the response - remove markdown formatting if present
-        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        
-        console.log('📝 Gemini response:', responseText);
-        
-        // Parse the JSON response
-        const analysis = JSON.parse(responseText);
-        
-        console.log('✅ Book analysis complete!', analysis);
-        
-        return analysis;
-        
+        // Extract JSON from response
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Failed to extract JSON from AI response');
+        }
+
+        const analysis = JSON.parse(jsonMatch[0]);
+
+        // Transform into format expected by music search
+        const transformedAnalysis = transformAnalysis(analysis);
+
+        console.log('🎭 DEEP ANALYSIS:');
+        console.log('  Emotional weight:', analysis.emotional_core?.emotional_weight);
+        console.log('  Subject gravity:', analysis.thematic_context?.subject_gravity);
+        console.log('  Sensitive topics:', analysis.thematic_context?.sensitive_topics);
+        console.log('  Primary emotions:', analysis.emotional_core?.primary_emotions);
+        console.log('  Atmosphere:', analysis.atmospheric_qualities?.mood_descriptors);
+        console.log('  Geographic setting:', analysis.geographic_cultural?.primary_setting);
+        console.log('  Suggested artists:', analysis.musical_direction?.suggested_artists?.slice(0, 3));
+        console.log('  EXPLICIT EXCLUSIONS:', analysis.musical_direction?.explicit_exclusions);
+
+        return transformedAnalysis;
+
     } catch (error) {
-        console.error('❌ Gemini API error:', error);
+        console.error('Error analyzing book:', error);
         
-        // Fallback: return basic analysis
+        // Return safe, minimal defaults
         return {
             mood: ['contemplative', 'atmospheric'],
             setting_place: 'unknown',
-            setting_era: 'contemporary',
-            pace: 'medium',
-            themes: [bookTitle.toLowerCase()],
-            music_genres: ['ambient', 'instrumental'],
-            cultural_sound: 'none',
-            instrumental_focus: 'yes',
-            search_keywords: [bookTitle.toLowerCase(), 'ambient', 'reading']
+            geographic_setting: null,
+            time_period: null,
+            suggested_artists: [],
+            explicit_exclusions: [],
+            emotional_weight: 'medium',
+            subject_gravity: 'contemplative',
+            sensitive_topics: [],
+            atmospheric_descriptors: ['meditative', 'spacious'],
+            instrument_palette: ['piano', 'strings'],
+            sonic_texture: 'minimal'
         };
     }
 }
 
-// Test function
-async function testBookAnalysis() {
-    console.log('Testing AI book analysis...');
-    
-    const analysis = await analyzeBookWithAI(
-        'Snow',
-        'Orhan Pamuk',
-        'An exiled poet returns to Turkey and is caught up in the religious and political conflicts of a remote town covered in snow.'
-    );
-    
-    console.log('Analysis result:', analysis);
-    return analysis;
+// Transform complex analysis into format used by music search
+function transformAnalysis(analysis) {
+    const transformed = {
+        // Legacy fields (for backward compatibility)
+        mood: [
+            ...(analysis.emotional_core?.primary_emotions || []),
+            ...(analysis.atmospheric_qualities?.mood_descriptors || [])
+        ].slice(0, 5),
+        
+        setting_place: mapSpatialQuality(analysis.atmospheric_qualities?.spatial_quality),
+        
+        // New detailed fields
+        geographic_setting: analysis.geographic_cultural?.primary_setting || null,
+        time_period: analysis.geographic_cultural?.time_period || null,
+        cultural_context: analysis.geographic_cultural?.cultural_traditions || '',
+        
+        suggested_artists: analysis.musical_direction?.suggested_artists || [],
+        reference_composers: analysis.musical_direction?.reference_composers || [],
+        
+        // Critical filtering fields
+        explicit_exclusions: analysis.musical_direction?.explicit_exclusions || [],
+        emotional_weight: analysis.emotional_core?.emotional_weight || 'medium',
+        subject_gravity: analysis.thematic_context?.subject_gravity || 'contemplative',
+        sensitive_topics: analysis.thematic_context?.sensitive_topics || [],
+        
+        // Atmospheric guidance
+        atmospheric_descriptors: analysis.atmospheric_qualities?.mood_descriptors || [],
+        sonic_texture: analysis.atmospheric_qualities?.sonic_texture || 'balanced',
+        spatial_quality: analysis.atmospheric_qualities?.spatial_quality || 'balanced',
+        
+        // Musical direction
+        instrument_palette: analysis.musical_direction?.instrument_palette || [],
+        genre_suggestions: analysis.musical_direction?.genre_suggestions || [],
+        
+        // Pacing
+        reading_pace: analysis.pacing_rhythm?.reading_pace || 'moderate',
+        narrative_rhythm: analysis.pacing_rhythm?.narrative_rhythm || 'flowing',
+        
+        // Themes
+        themes: analysis.thematic_context?.core_themes || []
+    };
+
+    // If book has sensitive topics, add aggressive exclusions
+    if (transformed.sensitive_topics.length > 0) {
+        const sensitiveExclusions = [
+            'Latin pop', 'reggaeton', 'dance pop', 'party', 'EDM', 
+            'upbeat', 'cheerful', 'festive', 'celebratory', 'energetic',
+            'club', 'dance', 'happy', 'optimistic', 'fun'
+        ];
+        
+        transformed.explicit_exclusions = [
+            ...new Set([
+                ...transformed.explicit_exclusions,
+                ...sensitiveExclusions
+            ])
+        ];
+        
+        console.log('⚠️ SENSITIVE TOPICS DETECTED - Applying strict exclusions:', transformed.explicit_exclusions);
+    }
+
+    return transformed;
 }
 
-// TEMPORARY: Mock AI analysis for testing while rate-limited
-function getMockAnalysis(bookTitle, bookAuthor) {
-    console.log('⚠️ Using mock analysis (rate limited)');
-    
-    // Smart mock based on book
-    const mocks = {
-        'snow': {
-            mood: ['melancholic', 'contemplative', 'mysterious'],
-            setting_place: 'Kars, Turkey',
-            setting_era: '1990s',
-            pace: 'slow',
-            vibes: ['snow', 'turkish politics', 'identity', 'isolation', 'poetry'],
-            music_genres: ['anatolian rock', 'turkish folk', 'ambient'],
-            cultural_sound: 'anatolian psychedelic soul',
-            instruments: ['baglama', 'ney', 'synth'],
-            artists: ['Selda Bagcan', 'Erkin Koray', 'Baris Manco'],
-            search_keywords: ['turkish psychedelic', 'anatolian', 'melancholic', 'contemplative']
-        },
-        'giovanni': {
-            mood: ['intimate', 'tragic', 'passionate'],
-            setting_place: 'Paris, France',
-            setting_era: '1950s',
-            pace: 'medium',
-            vibes: ['paris 1950s', 'love', 'cigarettes', 'jazz clubs', 'existential'],
-            music_genres: ['1950s jazz', 'french cafe jazz', 'cool jazz'],
-            cultural_sound: 'parisian jazz club',
-            instruments: ['piano', 'double bass', 'trumpet'],
-            artists: ['Miles Davis', 'Chet Baker', 'Bill Evans'],
-            search_keywords: ['1950s jazz', 'french jazz', 'cool jazz', 'intimate']
-        },
-        'forty': {
-            mood: ['mystical', 'spiritual', 'contemplative'],
-            setting_place: 'Konya, Turkey',
-            setting_era: '13th century',
-            pace: 'slow',
-            vibes: ['rumi', 'whirling dervishes', 'sufism', 'devotional', 'mystical'],
-            music_genres: ['sufi qawwali', 'turkish classical', 'sema music'],
-            cultural_sound: 'turkish sufi devotional music',
-            instruments: ['ney flute', 'oud', 'bendir drum'],
-            artists: ['Mercan Dede', 'Kudsi Erguner', 'Nusrat Fateh Ali Khan'],
-            search_keywords: ['sufi music', 'ney flute', 'turkish mystical', 'devotional']
-        },
-        'shafak': {
-            mood: ['mystical', 'spiritual', 'contemplative'],
-            setting_place: 'Konya, Turkey',
-            setting_era: '13th century',
-            pace: 'slow',
-            vibes: ['rumi', 'whirling dervishes', 'sufism', 'devotional', 'mystical'],
-            music_genres: ['sufi qawwali', 'turkish classical', 'sema music'],
-            cultural_sound: 'turkish sufi devotional music',
-            instruments: ['ney flute', 'oud', 'bendir drum'],
-            artists: ['Mercan Dede', 'Kudsi Erguner', 'Nusrat Fateh Ali Khan'],
-            search_keywords: ['sufi music', 'ney flute', 'turkish mystical', 'devotional']
-        },
-        'island': {
-            mood: ['tender', 'melancholic', 'nostalgic'],
-            setting_place: 'Cyprus',
-            setting_era: 'contemporary',
-            pace: 'medium',
-            vibes: ['cyprus', 'figs', 'family', 'tender love', 'mediterranean'],
-            music_genres: ['cypriot folk', 'greek bouzouki', 'mediterranean'],
-            cultural_sound: 'cypriot traditional music',
-            instruments: ['bouzouki', 'lyra', 'violin'],
-            artists: ['Michalis Terzis', 'Alkinoos Ioannidis', 'Haris Alexiou'],
-            search_keywords: ['cypriot music', 'mediterranean', 'bouzouki', 'tender']
-        }
+function mapSpatialQuality(quality) {
+    const mapping = {
+        'intimate': 'indoor',
+        'enclosed': 'indoor',
+        'expansive': 'nature',
+        'vast': 'nature'
     };
-    
-    // Find matching mock
-    const titleLower = bookTitle.toLowerCase();
-    for (let key in mocks) {
-        if (titleLower.includes(key)) {
-            return mocks[key];
-        }
-    }
-    
-    // Default fallback
-    return {
-        mood: ['contemplative', 'atmospheric', 'introspective'],
-        setting_place: 'contemporary',
-        setting_era: 'modern',
-        pace: 'medium',
-        vibes: ['literary', 'thoughtful', 'reading', 'quiet', 'reflective'],
-        music_genres: ['ambient', 'modern classical', 'downtempo'],
-        cultural_sound: 'contemporary instrumental',
-        instruments: ['piano', 'strings', 'synth'],
-        artists: ['Nils Frahm', 'Olafur Arnalds', 'Max Richter'],
-        search_keywords: ['ambient', 'modern classical', 'contemplative', 'instrumental']
-    };
+    return mapping[quality] || 'unknown';
 }
