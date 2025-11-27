@@ -3,7 +3,7 @@
 // OAuth Configuration
 const SPOTIFY_AUTH_CONFIG = {
     clientId: CONFIG.SPOTIFY_CLIENT_ID,
-    redirectUri: 'http://127.0.0.1:8000/index.html', // Changed to match Spotify dashboard
+    redirectUri: 'https://aichasd.github.io/bookbeats/index.html', // Changed to match Spotify dashboard
     scopes: [
         'playlist-modify-public',
         'playlist-modify-private',
