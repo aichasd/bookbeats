@@ -1,6 +1,0 @@
-// Your API keys - keep these secret!
-const CONFIG = {
-    GEMINI_API_KEY: 'AIzaSyBpX52vs3hKX3DO36WtjmGbBoAJzLfLrZs',
-    SPOTIFY_CLIENT_ID: '5d94362527034f2b8a459f4d38199bc7',
-    SPOTIFY_CLIENT_SECRET: 'e5f274758e644efb907c76ab3c7b3250'
-};
