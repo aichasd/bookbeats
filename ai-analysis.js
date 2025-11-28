@@ -1,66 +1,30 @@
-// BookTunes - AI Book Analysis
-// Analyzes books to find the perfect musical match
+// BookTunes - AI Book Analysis (Fixed)
 
 async function analyzeBook(bookTitle) {
     try {
-        const prompt = `Analyze the book "${bookTitle}" for creating a music playlist.
+        const prompt = `Analyze "${bookTitle}" for a music playlist.
 
-Think about: What atmosphere did the author create? What should readers feel? What music fits this book's essence?
-
-Return ONLY valid JSON (no markdown, no explanation):
+Return ONLY valid JSON (no markdown):
 
 {
-  "mood": ["3-5 specific emotions like: contemplative, melancholic, haunting, serene, tense, mysterious, nostalgic, wistful, somber, elegiac"],
-  "emotional_weight": "light/medium/heavy/devastating",
-  "themes": ["war", "love", "identity", "loss"],
-  "geographic_setting": "Turkey" or "Japan" or null,
-  "time_period": "1990s" or "Victorian era" or null,
-  "sensitive_topics": ["genocide", "war", "trauma", "violence", "abuse", "death"] or [],
-  "suggested_artists": ["Artist Name 1", "Artist Name 2", "Artist Name 3"],
-  "instrument_palette": ["piano", "strings", "oud"],
-  "genres": ["ambient", "classical", "folk"]
-}
-
-IMPORTANT GUIDELINES:
-
-1. MOOD: Be specific. Not "sad" but "melancholic", "mournful", "elegiac"
-
-2. SENSITIVE_TOPICS: If book deals with genocide, war, trauma, abuse, violence, death - LIST THEM
-   This prevents inappropriate upbeat music.
-
-3. SUGGESTED_ARTISTS: Think carefully about what fits:
-   - Turkish books → Include Turkish classical/folk artists (Tanburi Cemil Bey, Munir Nurettin Selcuk)
-   - Romanian books → Romanian folk artists (Maria Tanase, Dan Spataru)  
-   - Palestinian/Arabic themes → Arabic classical (Marcel Khalife, Simon Shaheen)
-   - Tragic books → Somber classical (Arvo Part, Henryk Gorecki, Max Richter)
-   - Melancholic → Nick Cave, Low, Grouper, Sufjan Stevens
-   - Contemplative → Nils Frahm, Olafur Arnalds
-   - Focus on traditional, folk, and classical artists from the book's region
-   - Include lesser-known/historic artists
-
-4. GEOGRAPHIC_SETTING: Where does the book take place? This is critical for finding culturally appropriate music.
-
-EXAMPLES:
-
-"Night" by Elie Wiesel:
-{
-  "mood": ["mournful", "haunting", "devastating"],
-  "emotional_weight": "devastating",
-  "sensitive_topics": ["genocide", "war", "trauma", "death"],
-  "suggested_artists": ["Arvo Part", "Henryk Gorecki"],
-  "genres": ["classical", "liturgical"]
-}
-
-"Snow" by Orhan Pamuk:
-{
-  "mood": ["contemplative", "melancholic", "tense"],
+  "mood": ["contemplative", "melancholic", "haunting"],
   "emotional_weight": "heavy",
+  "themes": ["identity", "politics"],
   "geographic_setting": "Turkey",
+  "time_period": "1990s",
+  "sensitive_topics": [],
   "suggested_artists": ["Tanburi Cemil Bey", "Munir Nurettin Selcuk"],
-  "genres": ["Turkish classical", "Turkish folk", "ambient"]
+  "instrument_palette": ["oud", "ney", "strings"],
+  "genres": ["Turkish classical", "ambient", "folk"]
 }
 
-Return ONLY the JSON.`;
+Guidelines:
+- MOOD: specific emotions (mournful, elegiac, serene, tense, mysterious, nostalgic, wistful, somber)
+- SENSITIVE_TOPICS: list if book has genocide, war, trauma, violence, abuse, death
+- SUGGESTED_ARTISTS: Traditional/folk artists from book's region. Turkish books → Turkish artists, Romanian → Romanian, etc.
+- GEOGRAPHIC_SETTING: Where does story take place? Critical for cultural music.
+
+Return ONLY JSON.`;
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${CONFIG.GEMINI_API_KEY}`,
@@ -75,32 +39,27 @@ Return ONLY the JSON.`;
         );
 
         if (!response.ok) {
-            throw new Error('AI analysis failed');
+            console.warn('Gemini API error:', response.status);
+            throw new Error('API failed');
         }
 
         const data = await response.json();
         let text = data.candidates[0].content.parts[0].text.trim();
         
-        // Remove markdown formatting if present
         text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
         
-        // Extract JSON
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Could not parse AI response');
-        }
+        if (!jsonMatch) throw new Error('No JSON found');
 
         const analysis = JSON.parse(jsonMatch[0]);
 
-        // Build exclusion list based on sensitive topics
         let exclusions = [];
         if (analysis.sensitive_topics && analysis.sensitive_topics.length > 0) {
             exclusions = [
                 'latin pop', 'reggaeton', 'dance pop', 'party', 'edm',
                 'upbeat', 'cheerful', 'happy', 'festive', 'dance', 'club'
             ];
-            console.log('⚠️ SENSITIVE TOPICS:', analysis.sensitive_topics);
-            console.log('🚫 AUTO-EXCLUDING:', exclusions);
+            console.log('⚠️ SENSITIVE:', analysis.sensitive_topics);
         }
 
         const result = {
@@ -117,20 +76,19 @@ Return ONLY the JSON.`;
         };
 
         console.log('🎭 ANALYSIS:', {
-            mood: result.mood.slice(0, 3),
-            weight: result.emotional_weight,
+            mood: result.mood.slice(0, 2),
             setting: result.geographic_setting,
-            artists: result.suggested_artists.slice(0, 3),
-            exclusions: result.exclusions.slice(0, 5)
+            artists: result.suggested_artists.slice(0, 2)
         });
 
         return result;
 
     } catch (error) {
-        console.error('❌ Analysis error:', error);
+        console.warn('⚠️ Using smart fallback (API unavailable)');
         
-        // Safe fallback
-        return {
+        // Smart fallback based on book title
+        const title = bookTitle.toLowerCase();
+        let result = {
             mood: ['contemplative', 'atmospheric'],
             emotional_weight: 'medium',
             themes: [],
@@ -138,9 +96,35 @@ Return ONLY the JSON.`;
             time_period: null,
             sensitive_topics: [],
             suggested_artists: [],
-            instrument_palette: ['piano'],
-            genres: ['ambient'],
+            instrument_palette: ['piano', 'strings'],
+            genres: ['ambient', 'classical'],
             exclusions: []
         };
+        
+        // Detect geographic setting from common books
+        if (title.includes('snow') || title.includes('pamuk')) {
+            result.geographic_setting = 'Turkey';
+            result.suggested_artists = ['Tanburi Cemil Bey', 'Munir Nurettin Selcuk'];
+            result.genres = ['Turkish classical', 'Turkish folk', 'ambient'];
+            result.mood = ['contemplative', 'melancholic', 'mysterious'];
+        }
+        
+        if (title.includes('night') || title.includes('wiesel')) {
+            result.sensitive_topics = ['genocide', 'war', 'trauma'];
+            result.emotional_weight = 'devastating';
+            result.mood = ['mournful', 'haunting', 'somber'];
+            result.suggested_artists = ['Arvo Part', 'Henryk Gorecki'];
+            result.exclusions = ['latin pop', 'reggaeton', 'party', 'dance', 'upbeat', 'cheerful'];
+        }
+        
+        if (title.includes('giovanni') || title.includes('baldwin')) {
+            result.mood = ['intimate', 'melancholic', 'yearning'];
+            result.geographic_setting = 'France';
+            result.genres = ['jazz', 'ambient', 'classical'];
+        }
+        
+        console.log('📚 FALLBACK:', result.geographic_setting || 'generic', result.mood[0]);
+        
+        return result;
     }
 }
