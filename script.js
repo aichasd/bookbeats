@@ -1,78 +1,159 @@
-// BookTunes - Sophisticated Music Search (DEBUGGED)
-// Keeps all advanced features with proper syntax
+// BookTunes - Main Script
+// Autocomplete, playlist generation, and sophisticated music curation
 
-let aiGeneratedTracks = [];
+let generatedTracks = [];
 let currentAnalysis = null;
+let selectedBook = null;
 
 // Configuration
-const SEARCH_CONFIG = {
+const CONFIG_SEARCH = {
     MIN_QUALITY_SCORE: 75,
-    MIN_QUALITY_SCORE_SENSITIVE: 80,
-    TARGET_PLAYLIST_SIZE: 30,
+    MIN_QUALITY_SCORE_SENSITIVE: 85,
+    TARGET_TRACKS: 30,
     MIN_INSTRUMENTALNESS: 0.70,
-    MAX_SPEECHINESS: 0.33,
-    BATCH_SIZE: 50
+    MAX_SPEECHINESS: 0.33
 };
 
 const BASE_BLACKLIST = [
     'comedy', 'stand-up', 'podcast', 'audiobook', 'spoken word',
-    'kids', 'children', 'christmas', 'holiday'
+    'kids', 'children', 'christmas', 'holiday', 'karaoke'
 ];
 
-// Main function
-async function generatePlaylist() {
-    const bookTitle = document.getElementById('bookTitle').value.trim();
+// ==========================================
+// AUTOCOMPLETE (Google Books API)
+// ==========================================
+
+const bookInput = document.getElementById('bookInput');
+const autocompleteResults = document.getElementById('autocompleteResults');
+let autocompleteTimeout;
+
+bookInput.addEventListener('input', function() {
+    clearTimeout(autocompleteTimeout);
+    const query = this.value.trim();
     
-    if (!bookTitle) {
+    if (query.length < 2) {
+        autocompleteResults.style.display = 'none';
+        return;
+    }
+    
+    autocompleteTimeout = setTimeout(() => searchBooks(query), 300);
+});
+
+async function searchBooks(query) {
+    try {
+        const response = await fetch(
+            `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`
+        );
+        const data = await response.json();
+        
+        if (data.items && data.items.length > 0) {
+            displayAutocomplete(data.items);
+        } else {
+            autocompleteResults.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Autocomplete error:', error);
+    }
+}
+
+function displayAutocomplete(books) {
+    autocompleteResults.innerHTML = books.map(book => {
+        const info = book.volumeInfo;
+        const title = info.title || 'Unknown Title';
+        const author = info.authors ? info.authors[0] : 'Unknown Author';
+        const cover = info.imageLinks?.thumbnail || '';
+        
+        return `
+            <div class="autocomplete-item" onclick="selectBook('${escapeHtml(title)}', '${escapeHtml(author)}', '${escapeHtml(cover)}')">
+                ${cover ? `<img src="${cover}" alt="${title}">` : ''}
+                <div>
+                    <div class="book-title-auto">${title}</div>
+                    <div class="book-author-auto">${author}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    autocompleteResults.style.display = 'block';
+}
+
+function selectBook(title, author, cover) {
+    selectedBook = { title, author, cover };
+    bookInput.value = title;
+    autocompleteResults.style.display = 'none';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/'/g, "\\'");
+}
+
+// Hide autocomplete when clicking outside
+document.addEventListener('click', function(e) {
+    if (!bookInput.contains(e.target) && !autocompleteResults.contains(e.target)) {
+        autocompleteResults.style.display = 'none';
+    }
+});
+
+// ==========================================
+// PLAYLIST GENERATION
+// ==========================================
+
+async function generatePlaylist() {
+    const title = bookInput.value.trim();
+    
+    if (!title) {
         alert('Please enter a book title');
         return;
     }
-
-    const userPreferences = {
+    
+    const preferences = {
         instrumentalOnly: document.getElementById('instrumentalOnly').checked,
-        foreignLyricsOk: document.getElementById('foreignLyricsOk').checked
+        foreignLyricsOk: document.getElementById('foreignLyrics').checked
     };
-
+    
     showLoading();
-
+    
     try {
-        console.log('📚 Analyzing:', bookTitle);
-        currentAnalysis = await analyzeBook(bookTitle);
+        console.log('📚 Analyzing:', title);
+        currentAnalysis = await analyzeBook(title);
         
         console.log('✅ Analysis complete');
-        console.log('   Weight:', currentAnalysis.emotional_weight);
-        console.log('   Gravity:', currentAnalysis.subject_gravity);
-        console.log('   Sensitive:', currentAnalysis.sensitive_topics);
-
-        // Build blacklist
-        const blacklist = buildBlacklist(currentAnalysis);
-        console.log('🚫 Blacklist:', blacklist.slice(0, 10));
-
-        // Search
-        const tracks = await searchTracks(currentAnalysis, userPreferences, blacklist);
+        
+        // Build dynamic blacklist
+        const blacklist = [
+            ...BASE_BLACKLIST,
+            ...currentAnalysis.exclusions
+        ];
+        
+        console.log('🎵 Searching tracks...');
+        const tracks = await searchWithStrategies(currentAnalysis, preferences, blacklist);
         
         if (tracks.length === 0) {
             throw new Error('No tracks found. Try different preferences.');
         }
-
-        // Validate
-        const minScore = currentAnalysis.sensitive_topics?.length > 0 
-            ? SEARCH_CONFIG.MIN_QUALITY_SCORE_SENSITIVE 
-            : SEARCH_CONFIG.MIN_QUALITY_SCORE;
-            
-        const validated = await validateTracks(tracks, userPreferences, currentAnalysis, minScore);
-
+        
+        console.log('🔍 Validating tracks...');
+        const minScore = currentAnalysis.sensitive_topics.length > 0 
+            ? CONFIG_SEARCH.MIN_QUALITY_SCORE_SENSITIVE 
+            : CONFIG_SEARCH.MIN_QUALITY_SCORE;
+        
+        const validated = await validateTracks(tracks, preferences, currentAnalysis, minScore);
+        
         if (validated.length === 0) {
-            throw new Error('No tracks passed validation.');
+            throw new Error('No tracks passed quality validation.');
         }
-
-        // Select best
-        aiGeneratedTracks = selectBest(validated);
-
-        console.log('✅ Final:', aiGeneratedTracks.length, 'tracks');
-
-        displayResults(bookTitle, aiGeneratedTracks);
-
+        
+        generatedTracks = selectBestTracks(validated);
+        
+        console.log('✅ PLAYLIST READY:', generatedTracks.length, 'tracks');
+        console.log('Top tracks:', generatedTracks.slice(0, 3).map(t => 
+            `${t.name} by ${t.artists[0].name}`
+        ));
+        
+        displayResults();
+        
     } catch (error) {
         console.error('❌ Error:', error);
         alert('Error: ' + error.message);
@@ -80,46 +161,30 @@ async function generatePlaylist() {
     }
 }
 
-// Build dynamic blacklist
-function buildBlacklist(analysis) {
-    let blacklist = [...BASE_BLACKLIST];
-    
-    if (analysis.explicit_exclusions) {
-        blacklist.push(...analysis.explicit_exclusions.map(e => e.toLowerCase()));
-    }
-    
-    if (analysis.subject_gravity === 'tragic' || analysis.subject_gravity === 'traumatic') {
-        blacklist.push('party', 'dance', 'edm', 'upbeat', 'cheerful', 'happy');
-    }
-    
-    if (analysis.sensitive_topics?.length > 0) {
-        blacklist.push('party', 'dance', 'reggaeton', 'latin pop', 'upbeat', 'cheerful');
-    }
-    
-    return [...new Set(blacklist)];
-}
+// ==========================================
+// MUSIC SEARCH STRATEGIES
+// ==========================================
 
-// Search tracks
-async function searchTracks(analysis, prefs, blacklist) {
+async function searchWithStrategies(analysis, prefs, blacklist) {
     const allTracks = [];
     
-    // Strategy 1: Suggested artists (PRIORITY)
-    if (analysis.suggested_artists?.length > 0) {
+    // Strategy 1: AI-suggested artists (HIGHEST PRIORITY)
+    if (analysis.suggested_artists.length > 0) {
         console.log('🎤 Searching suggested artists');
-        for (const artist of analysis.suggested_artists) {
+        for (const artist of analysis.suggested_artists.slice(0, 6)) {
             const query = prefs.instrumentalOnly 
                 ? `artist:"${artist}" instrumental`
                 : `artist:"${artist}"`;
             
-            const results = await searchSpotify(query, 20, blacklist);
-            results.forEach(t => t.qualityScore = (t.qualityScore || 50) + 25);
+            const results = await searchSpotify(query, 15, blacklist);
+            results.forEach(t => t.priorityBoost = 25); // Big boost!
             allTracks.push(...results);
         }
     }
     
-    // Strategy 2: Geographic music
+    // Strategy 2: Geographic/cultural music
     if (analysis.geographic_setting && prefs.foreignLyricsOk) {
-        console.log('🌍 Searching geographic context');
+        console.log('🌍 Searching geographic music');
         const queries = [
             `${analysis.geographic_setting} traditional`,
             `${analysis.geographic_setting} folk`,
@@ -127,41 +192,29 @@ async function searchTracks(analysis, prefs, blacklist) {
         ];
         
         for (const query of queries) {
-            const results = await searchSpotify(query, 15, blacklist);
+            const results = await searchSpotify(query, 12, blacklist);
+            results.forEach(t => t.priorityBoost = 15);
             allTracks.push(...results);
         }
     }
     
     // Strategy 3: Mood + instruments
     console.log('🎹 Searching mood combinations');
-    const moods = analysis.mood || [];
-    const instruments = analysis.instrument_palette || ['piano', 'strings'];
-    
-    for (const mood of moods.slice(0, 2)) {
-        for (const inst of instruments.slice(0, 2)) {
-            const query = `${mood} ${inst}`;
-            const results = await searchSpotify(query, 10, blacklist);
+    for (const mood of analysis.mood.slice(0, 3)) {
+        for (const inst of analysis.instrument_palette.slice(0, 2)) {
+            const results = await searchSpotify(`${mood} ${inst}`, 10, blacklist);
             allTracks.push(...results);
         }
     }
     
     // Strategy 4: Genres
-    if (analysis.genre_suggestions?.length > 0) {
-        console.log('🎵 Searching genres');
-        for (const genre of analysis.genre_suggestions.slice(0, 3)) {
-            const query = prefs.instrumentalOnly
-                ? `genre:"${genre}" instrumental`
-                : `genre:"${genre}"`;
-            
-            const results = await searchSpotify(query, 12, blacklist);
-            allTracks.push(...results);
-        }
-    }
-    
-    // Strategy 5: Atmospheric
-    const descriptors = analysis.atmospheric_descriptors || [];
-    for (const desc of descriptors.slice(0, 3)) {
-        const results = await searchSpotify(`${desc} ambient`, 10, blacklist);
+    console.log('🎵 Searching genres');
+    for (const genre of analysis.genres.slice(0, 3)) {
+        const query = prefs.instrumentalOnly 
+            ? `genre:"${genre}" instrumental`
+            : `genre:"${genre}"`;
+        
+        const results = await searchSpotify(query, 10, blacklist);
         allTracks.push(...results);
     }
     
@@ -169,56 +222,43 @@ async function searchTracks(analysis, prefs, blacklist) {
     return allTracks;
 }
 
-// Spotify search with filtering
 async function searchSpotify(query, limit, blacklist) {
     try {
         const token = await getSpotifyToken();
-        const params = new URLSearchParams({
-            q: query,
-            type: 'track',
-            limit: limit,
-            market: 'US'
-        });
-
         const response = await fetch(
-            `https://api.spotify.com/v1/search?${params}`,
+            `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=US`,
             { headers: { 'Authorization': `Bearer ${token}` } }
         );
-
+        
         if (!response.ok) return [];
-
+        
         const data = await response.json();
         
-        // Filter
-        const filtered = data.tracks.items.filter(track => {
+        // Filter against blacklist
+        return data.tracks.items.filter(track => {
             if (!track.album) return false;
             
-            const name = track.name.toLowerCase();
-            const artist = track.artists[0].name.toLowerCase();
-            const album = track.album.name.toLowerCase();
-            
-            return !blacklist.some(b => 
-                name.includes(b) || artist.includes(b) || album.includes(b)
-            );
+            const text = `${track.name} ${track.artists[0].name} ${track.album.name}`.toLowerCase();
+            return !blacklist.some(blocked => text.includes(blocked));
         });
-
-        return filtered;
-
+        
     } catch (error) {
         console.error('Search error:', error);
         return [];
     }
 }
 
-// Validate with audio features
+// ==========================================
+// TRACK VALIDATION
+// ==========================================
+
 async function validateTracks(tracks, prefs, analysis, minScore) {
-    console.log(`🔍 Validating (min score: ${minScore})`);
-    
     const token = await getSpotifyToken();
     const validated = [];
+    const batchSize = 50;
     
-    for (let i = 0; i < tracks.length; i += SEARCH_CONFIG.BATCH_SIZE) {
-        const batch = tracks.slice(i, i + SEARCH_CONFIG.BATCH_SIZE);
+    for (let i = 0; i < tracks.length; i += batchSize) {
+        const batch = tracks.slice(i, i + batchSize);
         const ids = batch.map(t => t.id).join(',');
         
         try {
@@ -226,9 +266,9 @@ async function validateTracks(tracks, prefs, analysis, minScore) {
                 `https://api.spotify.com/v1/audio-features?ids=${ids}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-
+            
             if (!response.ok) continue;
-
+            
             const data = await response.json();
             
             for (let j = 0; j < batch.length; j++) {
@@ -236,11 +276,10 @@ async function validateTracks(tracks, prefs, analysis, minScore) {
                 const features = data.audio_features[j];
                 
                 if (!features) continue;
-
+                
                 const score = scoreTrack(track, features, prefs, analysis);
                 
                 if (score >= minScore) {
-                    track.audioFeatures = features;
                     track.qualityScore = score;
                     validated.push(track);
                 }
@@ -249,119 +288,119 @@ async function validateTracks(tracks, prefs, analysis, minScore) {
             console.error('Validation error:', error);
         }
     }
-
+    
     console.log(`✅ ${validated.length} tracks validated`);
     return validated;
 }
 
-// Score track
 function scoreTrack(track, features, prefs, analysis) {
     let score = 50;
-
-    // Instrumental check
-    if (prefs.instrumentalOnly) {
-        if (features.instrumentalness < SEARCH_CONFIG.MIN_INSTRUMENTALNESS) return 0;
-        score += 30;
+    
+    // Apply priority boost
+    score += track.priorityBoost || 0;
+    
+    // HARD CHECKS
+    if (prefs.instrumentalOnly && features.instrumentalness < CONFIG_SEARCH.MIN_INSTRUMENTALNESS) {
+        return 0;
     }
-
-    // No spoken word
-    if (features.speechiness > SEARCH_CONFIG.MAX_SPEECHINESS) return 0;
-
+    
+    if (features.speechiness > CONFIG_SEARCH.MAX_SPEECHINESS) {
+        return 0;
+    }
+    
     // Sensitive topics enforcement
-    if (analysis.sensitive_topics?.length > 0) {
-        if (features.valence > 0.6) return 0;
-        if (features.energy > 0.7) return 0;
+    if (analysis.sensitive_topics.length > 0) {
+        if (features.valence > 0.6 || features.energy > 0.7) return 0;
         if (features.valence < 0.4 && features.energy < 0.5) score += 20;
     }
-
+    
+    // Instrumental bonus
+    if (prefs.instrumentalOnly) score += 30;
+    
     // Mood matching
-    const target = getMoodTarget(analysis);
-    const match = matchMood(features, target);
-    score += match * 25;
-
-    // Discovery bonus
+    const target = getMoodTarget(analysis.emotional_weight);
+    const valenceDiff = Math.abs(features.valence - target.valence);
+    const energyDiff = Math.abs(features.energy - target.energy);
+    const moodMatch = 1 - ((valenceDiff + energyDiff) / 2);
+    score += moodMatch * 20;
+    
+    // Discovery bonus (lesser-known tracks)
     if (track.popularity < 30) score += 10;
-
-    // Duration check
+    
+    // Duration penalty
     const mins = track.duration_ms / 60000;
     if (mins < 1 || mins > 10) score -= 20;
-
+    
     return Math.max(0, Math.min(100, score));
 }
 
-// Get mood target
-function getMoodTarget(analysis) {
-    const weights = {
+function getMoodTarget(weight) {
+    const targets = {
         'light': { valence: 0.6, energy: 0.5 },
         'medium': { valence: 0.5, energy: 0.4 },
         'heavy': { valence: 0.3, energy: 0.3 },
         'devastating': { valence: 0.2, energy: 0.3 }
     };
-    
-    const adjustments = {
-        'lighthearted': { valence: 0.2, energy: 0.1 },
-        'contemplative': { valence: 0, energy: -0.1 },
-        'serious': { valence: -0.1, energy: -0.1 },
-        'tragic': { valence: -0.2, energy: -0.2 },
-        'traumatic': { valence: -0.3, energy: -0.2 }
-    };
-    
-    let profile = weights[analysis.emotional_weight] || weights['medium'];
-    const adj = adjustments[analysis.subject_gravity] || { valence: 0, energy: 0 };
-    
-    return {
-        valence: Math.max(0, Math.min(1, profile.valence + adj.valence)),
-        energy: Math.max(0, Math.min(1, profile.energy + adj.energy))
-    };
+    return targets[weight] || targets['medium'];
 }
 
-// Match mood
-function matchMood(features, target) {
-    const vDiff = Math.abs(features.valence - target.valence);
-    const eDiff = Math.abs(features.energy - target.energy);
-    return 1 - ((vDiff + eDiff) / 2);
-}
-
-// Select best tracks
-function selectBest(tracks) {
+function selectBestTracks(tracks) {
     const unique = Array.from(new Map(tracks.map(t => [t.id, t])).values());
     unique.sort((a, b) => b.qualityScore - a.qualityScore);
-    return unique.slice(0, SEARCH_CONFIG.TARGET_PLAYLIST_SIZE);
+    return unique.slice(0, CONFIG_SEARCH.TARGET_TRACKS);
 }
 
-// UI functions
+// ==========================================
+// UI FUNCTIONS
+// ==========================================
+
 function showLoading() {
-    document.getElementById('searchSection').style.display = 'none';
-    document.getElementById('loadingSection').style.display = 'block';
+    document.getElementById('homepage').style.display = 'none';
+    document.getElementById('loadingScreen').style.display = 'flex';
 }
 
 function hideLoading() {
-    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('loadingScreen').style.display = 'none';
 }
 
-function displayResults(bookTitle, tracks) {
+function displayResults() {
     hideLoading();
     
-    document.getElementById('resultBookTitle').textContent = bookTitle;
-    document.getElementById('trackCount').textContent = tracks.length;
+    const resultsPage = document.getElementById('resultsPage');
+    const playerContainer = document.getElementById('playerContainer');
     
-    const html = tracks.map((track, i) => `
-        <div class="track-item">
-            <div class="track-number">${i + 1}</div>
-            <img src="${track.album.images[2]?.url || track.album.images[0]?.url}" 
-                 alt="${track.name}" class="track-image">
-            <div class="track-info">
-                <div class="track-name">${track.name}</div>
-                <div class="track-artist">${track.artists[0].name}</div>
-            </div>
-            <div class="track-duration">${formatDuration(track.duration_ms)}</div>
-            <button class="play-preview-btn" onclick="playPreview('${track.preview_url}')" 
-                    ${!track.preview_url ? 'disabled' : ''}>▶</button>
+    // Set book info
+    if (selectedBook) {
+        document.getElementById('bookCover').src = selectedBook.cover || '';
+        document.getElementById('bookTitle').textContent = selectedBook.title;
+        document.getElementById('bookAuthor').textContent = selectedBook.author;
+    } else {
+        document.getElementById('bookCover').style.display = 'none';
+        document.getElementById('bookTitle').textContent = bookInput.value;
+        document.getElementById('bookAuthor').textContent = '';
+    }
+    
+    // Display track list
+    playerContainer.innerHTML = `
+        <div class="track-list">
+            ${generatedTracks.map((track, i) => `
+                <div class="track-item">
+                    <span class="track-number">${i + 1}</span>
+                    <img src="${track.album.images[2]?.url || track.album.images[0]?.url}" class="track-img">
+                    <div class="track-info">
+                        <div class="track-name">${track.name}</div>
+                        <div class="track-artist">${track.artists[0].name}</div>
+                    </div>
+                    <span class="track-duration">${formatDuration(track.duration_ms)}</span>
+                </div>
+            `).join('')}
         </div>
-    `).join('');
+        <button class="connect-spotify-btn" onclick="connectSpotify()">
+            Save to Spotify
+        </button>
+    `;
     
-    document.getElementById('trackList').innerHTML = html;
-    document.getElementById('resultsSection').style.display = 'block';
+    resultsPage.style.display = 'block';
 }
 
 function formatDuration(ms) {
@@ -370,28 +409,10 @@ function formatDuration(ms) {
     return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-function playPreview(url) {
-    if (!url) return;
-    
-    const existing = document.querySelector('audio');
-    if (existing) {
-        existing.pause();
-        existing.remove();
-    }
-    
-    const audio = new Audio(url);
-    audio.volume = 0.5;
-    audio.play();
-}
+// ==========================================
+// SPOTIFY TOKEN
+// ==========================================
 
-function findAnotherSoundtrack() {
-    document.getElementById('resultsSection').style.display = 'none';
-    document.getElementById('searchSection').style.display = 'block';
-    document.getElementById('bookTitle').value = '';
-    document.getElementById('bookTitle').focus();
-}
-
-// Token management
 let cachedToken = null;
 let tokenExpiry = null;
 
@@ -399,7 +420,7 @@ async function getSpotifyToken() {
     if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
         return cachedToken;
     }
-
+    
     const response = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
         headers: {
@@ -408,7 +429,7 @@ async function getSpotifyToken() {
         },
         body: 'grant_type=client_credentials'
     });
-
+    
     const data = await response.json();
     cachedToken = data.access_token;
     tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
@@ -416,8 +437,33 @@ async function getSpotifyToken() {
     return cachedToken;
 }
 
-// Event listener
-document.getElementById('bookTitle').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') generatePlaylist();
-});
+// ==========================================
+// EVENT LISTENERS
+// ==========================================
+
+// Generate button
 document.getElementById('generateBtn').addEventListener('click', generatePlaylist);
+
+// Enter key
+bookInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        autocompleteResults.style.display = 'none';
+        generatePlaylist();
+    }
+});
+
+// Find another soundtrack button
+document.getElementById('findAnotherBtn')?.addEventListener('click', () => {
+    document.getElementById('resultsPage').style.display = 'none';
+    document.getElementById('homepage').style.display = 'block';
+    bookInput.value = '';
+    selectedBook = null;
+});
+
+// Try another button
+document.getElementById('tryAnotherBtn')?.addEventListener('click', () => {
+    document.getElementById('resultsPage').style.display = 'none';
+    document.getElementById('homepage').style.display = 'block';
+});
+
+console.log('✅ BookTunes loaded');
