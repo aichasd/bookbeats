@@ -1,26 +1,20 @@
-// BookTunes - Main Script
-// Autocomplete, playlist generation, and sophisticated music curation
+// BookTunes - Main Script (No Audio Features Validation)
+// Works with basic Spotify search data only
 
 let generatedTracks = [];
 let currentAnalysis = null;
 let selectedBook = null;
 
-// Configuration
-const CONFIG_SEARCH = {
-    MIN_QUALITY_SCORE: 75,
-    MIN_QUALITY_SCORE_SENSITIVE: 85,
-    TARGET_TRACKS: 30,
-    MIN_INSTRUMENTALNESS: 0.70,
-    MAX_SPEECHINESS: 0.33
-};
+const TARGET_TRACKS = 30;
 
 const BASE_BLACKLIST = [
     'comedy', 'stand-up', 'podcast', 'audiobook', 'spoken word',
-    'kids', 'children', 'christmas', 'holiday', 'karaoke'
+    'kids', 'children', 'christmas', 'holiday', 'karaoke', 'disney',
+    'trap', 'dubstep', 'hardstyle'
 ];
 
 // ==========================================
-// AUTOCOMPLETE (Google Books API)
+// AUTOCOMPLETE
 // ==========================================
 
 const bookInput = document.getElementById('bookInput');
@@ -89,7 +83,6 @@ function escapeHtml(text) {
     return div.innerHTML.replace(/'/g, "\\'");
 }
 
-// Hide autocomplete when clicking outside
 document.addEventListener('click', function(e) {
     if (!bookInput.contains(e.target) && !autocompleteResults.contains(e.target)) {
         autocompleteResults.style.display = 'none';
@@ -121,7 +114,6 @@ async function generatePlaylist() {
         
         console.log('✅ Analysis complete');
         
-        // Build dynamic blacklist
         const blacklist = [
             ...BASE_BLACKLIST,
             ...currentAnalysis.exclusions
@@ -134,21 +126,15 @@ async function generatePlaylist() {
             throw new Error('No tracks found. Try different preferences.');
         }
         
-        console.log('🔍 Validating tracks...');
-        const minScore = currentAnalysis.sensitive_topics.length > 0 
-            ? CONFIG_SEARCH.MIN_QUALITY_SCORE_SENSITIVE 
-            : CONFIG_SEARCH.MIN_QUALITY_SCORE;
+        console.log('✨ Selecting best tracks...');
+        generatedTracks = selectBestTracks(tracks, preferences);
         
-        const validated = await validateTracks(tracks, preferences, currentAnalysis, minScore);
-        
-        if (validated.length === 0) {
-            throw new Error('No tracks passed quality validation.');
+        if (generatedTracks.length === 0) {
+            throw new Error('No suitable tracks found.');
         }
         
-        generatedTracks = selectBestTracks(validated);
-        
         console.log('✅ PLAYLIST READY:', generatedTracks.length, 'tracks');
-        console.log('Top tracks:', generatedTracks.slice(0, 3).map(t => 
+        console.log('Sample:', generatedTracks.slice(0, 3).map(t => 
             `${t.name} by ${t.artists[0].name}`
         ));
         
@@ -162,13 +148,13 @@ async function generatePlaylist() {
 }
 
 // ==========================================
-// MUSIC SEARCH STRATEGIES
+// MUSIC SEARCH
 // ==========================================
 
 async function searchWithStrategies(analysis, prefs, blacklist) {
     const allTracks = [];
     
-    // Strategy 1: AI-suggested artists (HIGHEST PRIORITY)
+    // Strategy 1: AI-suggested artists
     if (analysis.suggested_artists.length > 0) {
         console.log('🎤 Searching suggested artists');
         for (const artist of analysis.suggested_artists.slice(0, 6)) {
@@ -176,24 +162,24 @@ async function searchWithStrategies(analysis, prefs, blacklist) {
                 ? `artist:"${artist}" instrumental`
                 : `artist:"${artist}"`;
             
-            const results = await searchSpotify(query, 15, blacklist);
-            results.forEach(t => t.priorityBoost = 25); // Big boost!
+            const results = await searchSpotify(query, 20, blacklist, prefs);
+            results.forEach(t => t.priorityScore = 100); // Highest priority
             allTracks.push(...results);
         }
     }
     
-    // Strategy 2: Geographic/cultural music
+    // Strategy 2: Geographic music
     if (analysis.geographic_setting && prefs.foreignLyricsOk) {
         console.log('🌍 Searching geographic music');
         const queries = [
-            `${analysis.geographic_setting} traditional`,
-            `${analysis.geographic_setting} folk`,
+            `${analysis.geographic_setting} traditional instrumental`,
+            `${analysis.geographic_setting} folk instrumental`,
             `${analysis.geographic_setting} classical`
         ];
         
         for (const query of queries) {
-            const results = await searchSpotify(query, 12, blacklist);
-            results.forEach(t => t.priorityBoost = 15);
+            const results = await searchSpotify(query, 15, blacklist, prefs);
+            results.forEach(t => t.priorityScore = 80);
             allTracks.push(...results);
         }
     }
@@ -202,7 +188,12 @@ async function searchWithStrategies(analysis, prefs, blacklist) {
     console.log('🎹 Searching mood combinations');
     for (const mood of analysis.mood.slice(0, 3)) {
         for (const inst of analysis.instrument_palette.slice(0, 2)) {
-            const results = await searchSpotify(`${mood} ${inst}`, 10, blacklist);
+            const query = prefs.instrumentalOnly
+                ? `${mood} ${inst} instrumental`
+                : `${mood} ${inst}`;
+            
+            const results = await searchSpotify(query, 10, blacklist, prefs);
+            results.forEach(t => t.priorityScore = 60);
             allTracks.push(...results);
         }
     }
@@ -214,7 +205,8 @@ async function searchWithStrategies(analysis, prefs, blacklist) {
             ? `genre:"${genre}" instrumental`
             : `genre:"${genre}"`;
         
-        const results = await searchSpotify(query, 10, blacklist);
+        const results = await searchSpotify(query, 12, blacklist, prefs);
+        results.forEach(t => t.priorityScore = 50);
         allTracks.push(...results);
     }
     
@@ -222,7 +214,7 @@ async function searchWithStrategies(analysis, prefs, blacklist) {
     return allTracks;
 }
 
-async function searchSpotify(query, limit, blacklist) {
+async function searchSpotify(query, limit, blacklist, prefs) {
     try {
         const token = await getSpotifyToken();
         const response = await fetch(
@@ -230,16 +222,38 @@ async function searchSpotify(query, limit, blacklist) {
             { headers: { 'Authorization': `Bearer ${token}` } }
         );
         
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.warn('Spotify search failed:', response.status);
+            return [];
+        }
         
         const data = await response.json();
         
-        // Filter against blacklist
+        if (!data.tracks || !data.tracks.items) return [];
+        
+        // Filter
         return data.tracks.items.filter(track => {
-            if (!track.album) return false;
+            if (!track || !track.album || !track.artists || !track.artists[0]) return false;
             
             const text = `${track.name} ${track.artists[0].name} ${track.album.name}`.toLowerCase();
-            return !blacklist.some(blocked => text.includes(blocked));
+            
+            // Check blacklist
+            if (blacklist.some(blocked => text.includes(blocked))) return false;
+            
+            // Check for explicit "instrumental" in name if instrumental-only mode
+            if (prefs.instrumentalOnly) {
+                const hasInstrumental = text.includes('instrumental') || 
+                                      text.includes('piano') ||
+                                      text.includes('ambient') ||
+                                      text.includes('classical');
+                if (!hasInstrumental) return false;
+            }
+            
+            // Duration check (1-10 minutes)
+            const mins = track.duration_ms / 60000;
+            if (mins < 1 || mins > 10) return false;
+            
+            return true;
         });
         
     } catch (error) {
@@ -248,110 +262,39 @@ async function searchSpotify(query, limit, blacklist) {
     }
 }
 
-// ==========================================
-// TRACK VALIDATION
-// ==========================================
-
-async function validateTracks(tracks, prefs, analysis, minScore) {
-    const token = await getSpotifyToken();
-    const validated = [];
-    const batchSize = 50;
-    
-    for (let i = 0; i < tracks.length; i += batchSize) {
-        const batch = tracks.slice(i, i + batchSize);
-        const ids = batch.map(t => t.id).join(',');
-        
-        try {
-            const response = await fetch(
-                `https://api.spotify.com/v1/audio-features?ids=${ids}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-            
-            if (!response.ok) continue;
-            
-            const data = await response.json();
-            
-            for (let j = 0; j < batch.length; j++) {
-                const track = batch[j];
-                const features = data.audio_features[j];
-                
-                if (!features) continue;
-                
-                const score = scoreTrack(track, features, prefs, analysis);
-                
-                if (score >= minScore) {
-                    track.qualityScore = score;
-                    validated.push(track);
-                }
-            }
-        } catch (error) {
-            console.error('Validation error:', error);
-        }
-    }
-    
-    console.log(`✅ ${validated.length} tracks validated`);
-    return validated;
-}
-
-function scoreTrack(track, features, prefs, analysis) {
-    let score = 50;
-    
-    // Apply priority boost
-    score += track.priorityBoost || 0;
-    
-    // HARD CHECKS
-    if (prefs.instrumentalOnly && features.instrumentalness < CONFIG_SEARCH.MIN_INSTRUMENTALNESS) {
-        return 0;
-    }
-    
-    if (features.speechiness > CONFIG_SEARCH.MAX_SPEECHINESS) {
-        return 0;
-    }
-    
-    // Sensitive topics enforcement
-    if (analysis.sensitive_topics.length > 0) {
-        if (features.valence > 0.6 || features.energy > 0.7) return 0;
-        if (features.valence < 0.4 && features.energy < 0.5) score += 20;
-    }
-    
-    // Instrumental bonus
-    if (prefs.instrumentalOnly) score += 30;
-    
-    // Mood matching
-    const target = getMoodTarget(analysis.emotional_weight);
-    const valenceDiff = Math.abs(features.valence - target.valence);
-    const energyDiff = Math.abs(features.energy - target.energy);
-    const moodMatch = 1 - ((valenceDiff + energyDiff) / 2);
-    score += moodMatch * 20;
-    
-    // Discovery bonus (lesser-known tracks)
-    if (track.popularity < 30) score += 10;
-    
-    // Duration penalty
-    const mins = track.duration_ms / 60000;
-    if (mins < 1 || mins > 10) score -= 20;
-    
-    return Math.max(0, Math.min(100, score));
-}
-
-function getMoodTarget(weight) {
-    const targets = {
-        'light': { valence: 0.6, energy: 0.5 },
-        'medium': { valence: 0.5, energy: 0.4 },
-        'heavy': { valence: 0.3, energy: 0.3 },
-        'devastating': { valence: 0.2, energy: 0.3 }
-    };
-    return targets[weight] || targets['medium'];
-}
-
-function selectBestTracks(tracks) {
+function selectBestTracks(tracks, prefs) {
+    // Remove duplicates
     const unique = Array.from(new Map(tracks.map(t => [t.id, t])).values());
-    unique.sort((a, b) => b.qualityScore - a.qualityScore);
-    return unique.slice(0, CONFIG_SEARCH.TARGET_TRACKS);
+    
+    // Score tracks
+    unique.forEach(track => {
+        let score = track.priorityScore || 50;
+        
+        // Bonus for lesser-known (discovery)
+        if (track.popularity < 30) score += 20;
+        else if (track.popularity < 50) score += 10;
+        
+        // Bonus for specific keywords in instrumental mode
+        if (prefs.instrumentalOnly) {
+            const text = `${track.name} ${track.artists[0].name}`.toLowerCase();
+            if (text.includes('instrumental')) score += 15;
+            if (text.includes('piano')) score += 10;
+            if (text.includes('ambient')) score += 10;
+            if (text.includes('classical')) score += 10;
+        }
+        
+        track.finalScore = score;
+    });
+    
+    // Sort by score
+    unique.sort((a, b) => b.finalScore - a.finalScore);
+    
+    // Return top tracks
+    return unique.slice(0, TARGET_TRACKS);
 }
 
 // ==========================================
-// UI FUNCTIONS
+// UI
 // ==========================================
 
 function showLoading() {
@@ -369,7 +312,6 @@ function displayResults() {
     const resultsPage = document.getElementById('resultsPage');
     const playerContainer = document.getElementById('playerContainer');
     
-    // Set book info
     if (selectedBook) {
         document.getElementById('bookCover').src = selectedBook.cover || '';
         document.getElementById('bookTitle').textContent = selectedBook.title;
@@ -380,7 +322,6 @@ function displayResults() {
         document.getElementById('bookAuthor').textContent = '';
     }
     
-    // Display track list
     playerContainer.innerHTML = `
         <div class="track-list">
             ${generatedTracks.map((track, i) => `
@@ -441,10 +382,8 @@ async function getSpotifyToken() {
 // EVENT LISTENERS
 // ==========================================
 
-// Generate button
 document.getElementById('generateBtn').addEventListener('click', generatePlaylist);
 
-// Enter key
 bookInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         autocompleteResults.style.display = 'none';
@@ -452,7 +391,6 @@ bookInput.addEventListener('keypress', (e) => {
     }
 });
 
-// Find another soundtrack button
 document.getElementById('findAnotherBtn')?.addEventListener('click', () => {
     document.getElementById('resultsPage').style.display = 'none';
     document.getElementById('homepage').style.display = 'block';
@@ -460,7 +398,6 @@ document.getElementById('findAnotherBtn')?.addEventListener('click', () => {
     selectedBook = null;
 });
 
-// Try another button
 document.getElementById('tryAnotherBtn')?.addEventListener('click', () => {
     document.getElementById('resultsPage').style.display = 'none';
     document.getElementById('homepage').style.display = 'block';
