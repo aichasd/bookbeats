@@ -420,3 +420,4 @@ async function getSpotifyToken() {
 document.getElementById('bookTitle').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') generatePlaylist();
 });
+document.getElementById('generateBtn').addEventListener('click', generatePlaylist);
